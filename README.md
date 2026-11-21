@@ -1,8 +1,19 @@
 # ⚡ BlitzFair · 公平抢票
 
+<p align="center">
+  <img src="assets/hero-robbery.jpg" alt="BlitzFair — 机器人在 0.01 秒内抢走门票" width="100%" />
+</p>
+
+<p align="center">
+  <a href="assets/blitzfair-demo.mp4"><b>▶ 72 秒演示视频（assets/blitzfair-demo.mp4）</b></a> ·
+  <a href="https://codinggeoff.github.io/blitzfair/">在线 Demo</a> ·
+  <a href="https://testnet.monadvision.com/address/0x3c7C1a994b2046b4bfaEC46AC2309B20c1D6825e">测试网合约</a>
+</p>
+
 > 把抢票从**速度竞赛**换成**公开抽签**。
 > Commit → Reveal → 链上抽签，一地址一单、足额托管、未中签自助全额退款。
 > 抽签消除的是速度优势；资金优势它不消除——看到第「已知限制」一节。
+> **演示 Drop #5**：演唱会门票 · 限量 10 张 · 0.01 MON · 预置 15 个候选（10 机器人 + 4 真人 + 主钱包），全程真实 commit-reveal 上链。
 
 | 两分钟自证 | 位置 |
 |---|---|
