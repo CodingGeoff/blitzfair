@@ -7,10 +7,12 @@
 |---|---|
 | 公开仓库 | https://github.com/CodingGeoff/blitzfair |
 | 网页端（GitHub Pages，无需安装） | https://codinggeoff.github.io/blitzfair/ |
-| 合约（Monad 测试网 10143） | `0x3c7C1a994b2046b4bfaEC46AC2309B20c1D6825e` · [浏览器](https://testnet.monadscan.com/address/0x3c7C1a994b2046b4bfaEC46AC2309B20c1D6825e) |
-| 一条链上抽签记录 | `getDrop(5)` → [浏览器查询](https://testnet.monadscan.com/address/0x3c7C1a994b2046b4bfaEC46AC2309B20c1D6825e?tab=read_contract) |
+| 合约（Monad 测试网 10143） | `0x3c7C1a994b2046b4bfaEC46AC2309B20c1D6825e` |
+| 源码验证 | Sourcify：creation **match** / runtime **match** · [查看](https://repo.sourcify.dev/10143/0x3c7C1a994b2046b4bfaEC46AC2309B20c1D6825e) |
+| 一条命令复现整场发售 | `npm install && npm run demo` |
 
 > 测试网原型：使用测试币，无真实价值，未审计，不构成任何投资建议。
+> 合约源码已通过 Sourcify 校验（creation 与 runtime 均为 match），可对照仓库内 `contracts/BlitzFair.sol` 逐行复核。
 
 ---
 
@@ -90,6 +92,8 @@ foundry.toml
 
 打开 https://codinggeoff.github.io/blitzfair/ → 点「切换到 Monad 测试网」→ 连接钱包 → 按步骤走。
 没有测试币就去 [faucet.monad.xyz](https://faucet.monad.xyz) 领。
+
+页面是纯静态单文件，ethers 随仓库托管、不依赖任何外部 CDN，所以也可以直接双击 `docs/index.html` 离线打开。
 
 ### 2) 本地跑一遍完整流程
 
