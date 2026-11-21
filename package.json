@@ -1,0 +1,19 @@
+{
+  "name": "blitzfair-remote",
+  "version": "1.0.0",
+  "description": "> 让抢茅台、球鞋和演唱会门票，不再属于黄牛。",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "ethers": "^6.13.4",
+    "solc": "^0.8.30"
+  }
+}

@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>BlitzFair · 链上公平秒杀</title>
+<style>
+  :root { --bg:#0f0a1e; --card:#1a1430; --line:#2e2454; --purple:#836ef9; --mono:#b4befe; --green:#34d399; --red:#fb7185; --text:#e9e6ff; --dim:#8f89b8; }
+  * { box-sizing: border-box; margin: 0; }
+  body { background: radial-gradient(1200px 600px at 50% -10%, #2a1e5e 0%, var(--bg) 55%); color: var(--text);
+         font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; min-height: 100vh; }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 24px 16px 80px; }
+  header { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; padding: 8px 4px 18px; }
+  .logo { font-size: 26px; font-weight: 800; letter-spacing:.5px; }
+  .logo b { color: var(--purple); }
+  .logo small { display:block; font-size:12px; color: var(--dim); font-weight: 400; margin-top:2px; }
+  button { background: var(--purple); color:#0f0a1e; border:0; border-radius:10px; padding:10px 18px;
+           font-weight:700; font-size:15px; cursor:pointer; transition:.15s; }
+  button:hover { filter: brightness(1.1); }
+  button.ghost { background: transparent; color: var(--mono); border:1px solid var(--line); }
+  button:disabled { opacity:.4; cursor:not-allowed; }
+  .card { background: var(--card); border:1px solid var(--line); border-radius:16px; padding:18px; margin-top:16px; }
+  .card h2 { font-size:16px; color:var(--mono); margin-bottom:12px; letter-spacing:1px; }
+  label { display:block; font-size:12px; color:var(--dim); margin:10px 0 4px; }
+  input { width:100%; background:#120d26; border:1px solid var(--line); color:var(--text);
+          border-radius:10px; padding:10px 12px; font-size:14px; font-family: ui-monospace, monospace; }
+  .row { display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; }
+  .pill { display:inline-block; background:#241d47; color:var(--mono); border-radius:999px; padding:3px 12px; font-size:12px; margin-right:6px; }
+  .grid { display:grid; grid-template-columns: repeat(auto-fit,minmax(150px,1fr)); gap:10px; }
+  .stat { background:#120d26; border:1px solid var(--line); border-radius:12px; padding:10px 12px; }
+  .stat b { display:block; font-size:20px; }
+  .stat span { font-size:11px; color:var(--dim); }
+  #log { background:#0a0718; border:1px solid var(--line); border-radius:12px; padding:12px; font-family:ui-monospace,monospace;
+         font-size:12px; line-height:1.7; min-height:80px; max-height:260px; overflow:auto; white-space:pre-wrap; margin-top:16px; }
+  .ok { color: var(--green); } .err { color: var(--red); } .dim { color: var(--dim); }
+  .steps { display:flex; gap:8px; margin: 14px 0 0; flex-wrap:wrap; }
+  .step { flex:1; min-width:150px; text-align:center; border:1px solid var(--line); border-radius:12px; padding:10px 6px; color:var(--dim); font-size:13px; }
+  .step.active { border-color:var(--purple); color:var(--text); box-shadow:0 0 18px rgba(131,110,249,.35); }
+  .step.done { border-color:var(--green); color:var(--green); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo">⚡ <b>BlitzFair</b><small>链上公平秒杀 · 先到先得的时代结束了</small></div>
+    <div class="row" style="margin:0">
+      <button class="ghost" id="btnSwitch">切换到 Monad 测试网</button>
+      <button id="btnConnect">连接钱包</button>
+    </div>
+  </header>
+
+  <div class="card">
+    <h2>📣 本场 Drop</h2>
+    <div><span class="pill" id="netPill">未连接</span><span class="pill">一地址一单</span><span class="pill">未中全额退款</span></div>
+    <label>合约地址</label>
+    <input id="contractAddr" value="0x3c7C1a994b2046b4bfaEC46AC2309B20c1D6825e" />
+    <label>Drop ID</label>
+    <input id="dropId" value="0" />
+    <div class="row"><button class="ghost" id="btnRefresh">刷新 Drop 状态</button></div>
+    <div class="grid" style="margin-top:12px">
+      <div class="stat"><b id="stName">—</b><span>Drop 名称</span></div>
+      <div class="stat"><b id="stQuota">—</b><span>名额（quota）</span></div>
+      <div class="stat"><b id="stPrice">—</b><span>单价（MON）</span></div>
+      <div class="stat"><b id="stCommitted">—</b><span>已提交 / 已揭示</span></div>
+      <div class="stat"><b id="stStage">—</b><span>当前阶段</span></div>
+      <div class="stat"><b id="stWinners">—</b><span>中签人数</span></div>
+    </div>
+  </div>
+
+  <div class="steps">
+    <div class="step" id="s1">① 连接钱包</div>
+    <div class="step" id="s2">② 提交订单哈希</div>
+    <div class="step" id="s3">③ 揭示下单意图</div>
+    <div class="step" id="s4">④ 开奖 / 退款</div>
+  </div>
+
+  <div class="card">
+    <h2>② 提交（commit）</h2>
+    <p class="dim" style="font-size:12px">只交 hash，别人看不见你下了单。保存好 secret——它是揭示和退款的唯一凭证。</p>
+    <label>Secret（本地生成，请勿泄露）</label>
+    <div class="row" style="margin-top:0">
+      <input id="secret" placeholder="点击右侧生成" />
+      <button class="ghost" id="btnGenSecret">生成</button>
+    </div>
+    <label>你的 commitment（= keccak256(dropId, address, secret)）</label>
+    <input id="commitment" placeholder="生成 secret 后自动计算" readonly />
+    <div class="row"><button id="btnCommit">提交订单（支付单价）</button></div>
+  </div>
+
+  <div class="card">
+    <h2>③ 揭示（reveal）</h2>
+    <p class="dim" style="font-size:12px">提交窗口结束后，用同一个 secret 揭示。未 reveal 的人不参与抽签、可退款。</p>
+    <div class="row"><button id="btnReveal" class="ghost">揭示我的订单</button></div>
+  </div>
+
+  <div class="card">
+    <h2>④ 开奖 & 退款</h2>
+    <div class="row">
+      <button id="btnDraw" class="ghost">触发开奖（任何人可点）</button>
+      <button id="btnCheck" class="ghost">我中签了吗？</button>
+      <button id="btnRefund" class="ghost">未中奖 → 一键退款</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>📊 发售方对账看板</h2>
+    <p class="dim" style="font-size:12px">发行方视角：实时链上对账——谁下了单、谁 reveal 了、中签多少、待退款多少、货款何时提。</p>
+    <div class="grid">
+      <div class="stat"><b id="stRevealed">—</b><span>已揭示 / 已提交</span></div>
+      <div class="stat"><b id="stWinners2">—</b><span>中签人数</span></div>
+      <div class="stat"><b id="stPending">—</b><span>待退款人数</span></div>
+      <div class="stat"><b id="stProceeds">—</b><span>货款（MON）</span></div>
+    </div>
+    <div class="row">
+      <button class="ghost" id="btnSweep">💰 发行方提款（sweep）</button>
+      <button class="ghost" id="btnCopyAddr">复制合约地址</button>
+      <button class="ghost" id="btnCopyDrop">复制 Drop ID</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>🤖 BlitzFair Agent · 守发售智能体</h2>
+    <p class="dim" style="font-size:12px">设定一次，它全自动帮你走完 提交 → 揭示 → 开奖 → 退款 全流程。可选接 LLM（配 LLM_API_KEY）用中文口令操控；不配置则用零依赖规则引擎（一样好用）。</p>
+    <div style="background:#0a0718;border:1px solid var(--line);border-radius:12px;padding:12px;font-family:ui-monospace,monospace;font-size:12px;line-height:2;color:var(--mono)">
+      node agent/blitzfair-agent.js watch --drop 5&nbsp;&nbsp;&nbsp;&nbsp;# 守发售：全自动到退款<br/>
+      node agent/blitzfair-agent.js chat "帮我抢 5 号发售"&nbsp;&nbsp;# 中文口令下单<br/>
+      node agent/blitzfair-agent.js chat "我那单中奖了吗"&nbsp;&nbsp;# → 自动查中签
+    </div>
+    <div style="margin-top:10px"><span class="pill">AI Agent 原生</span><span class="pill">x402 微支付 · 路线图（发售方/用户按次付费）</span><span class="pill">LLM 可选 + 规则兜底</span></div>
+  </div>
+
+  <div id="log" class="dim">等待操作…</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/ethers@6.13.4/dist/ethers.umd.min.js"></script>
+<script>
+const ABI = [
+  'function createDrop(string name,uint256 quota,uint256 price,uint64 commitSeconds,uint64 revealSeconds) returns (uint256)',
+  'function hashOf(uint256 dropId, address account, bytes32 secret) view returns (bytes32)',
+  'function commit(uint256 dropId, bytes32 commitment) payable',
+  'function reveal(uint256 dropId, bytes32 secret)',
+  'function draw(uint256 dropId)',
+  'function claimRefund(uint256 dropId)',
+  'function isWinner(uint256 dropId, address account) view returns (bool)',
+  'function sweep(uint256 dropId)',
+  'function eligibleCount(uint256 dropId) view returns (uint256)',
+  'function getDrop(uint256 dropId) view returns (tuple(address issuer,string name,uint256 quota,uint256 price,uint64 commitDeadline,uint64 revealDeadline,bool drawn,uint256 committedCount,uint256 revealedCount,uint256 winners,uint256 proceeds))'
+];
+const MONAD_TESTNET = { chainId: '0x279F', chainName: 'Monad Testnet', nativeCurrency: { name: 'MON', symbol: 'MON', decimals: 18 }, rpcUrls: ['https://testnet-rpc.monad.xyz'], blockExplorerUrls: ['https://testnet.monadexplorer.com'] };
+
+const $ = (id) => document.getElementById(id);
+const log = (msg, cls) => { const el = $('log'); const t = new Date().toLocaleTimeString('zh-CN', {hour12:false}); el.innerHTML += `\n<span class="${cls||'dim'}">[${t}] ${msg}</span>`; el.scrollTop = el.scrollHeight; };
+const setStep = (n) => { for (let i=1;i<=4;i++){ const s=$('s'+i); s.classList.toggle('active', i===n); if(i<n) s.classList.add('done'); } };
+
+let provider, signer, account;
+const contract = () => new ethers.Contract($('contractAddr').value.trim(), ABI, signer ?? provider);
+const loadSaved = () => { try { return JSON.parse(localStorage.getItem('blitzfair_secrets') || '{}'); } catch { return {}; } };
+const saveSecret = (dropId, secret) => { const m = loadSaved(); m[dropId] = secret; localStorage.setItem('blitzfair_secrets', JSON.stringify(m)); };
+
+$('btnConnect').onclick = async () => {
+  if (!window.ethereum) return log('未检测到钱包（装个 MetaMask？）', 'err');
+  provider = new ethers.BrowserProvider(window.ethereum);
+  await provider.send('eth_requestAccounts', []);
+  signer = await provider.getSigner(); account = await signer.getAddress();
+  $('btnConnect').textContent = account.slice(0,6) + '…' + account.slice(-4);
+  $('netPill').textContent = '已连接 · 链 ' + (await provider.getNetwork()).chainId;
+  setStep(2); log('钱包已连接：' + account, 'ok'); restoreSecret();
+};
+$('btnSwitch').onclick = async () => {
+  if (!window.ethereum) return;
+  try { await window.ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: MONAD_TESTNET.chainId }] }); log('已切换到 Monad 测试网（chain 10143）', 'ok'); }
+  catch (e) {
+    if (e.code === 4902) { await window.ethereum.request({ method: 'wallet_addEthereumChain', params: [MONAD_TESTNET] }); log('已添加并切换到 Monad 测试网', 'ok'); }
+    else log('切换失败：' + (e.message || e), 'err');
+  }
+};
+$('btnGenSecret').onclick = async () => {
+  const s = ethers.hexlify(ethers.randomBytes(32));
+  $('secret').value = s; saveSecret($('dropId').value || '0', s); updateCommitment(); log('已生成 secret 并保存到本地（退款/揭示的凭证）', 'ok');
+};
+$('secret').addEventListener('input', updateCommitment);
+$('dropId').addEventListener('input', () => { updateCommitment(); restoreSecret(); });
+async function updateCommitment() {
+  const v = $('secret').value.trim(); const out = $('commitment');
+  if (!/^0x[0-9a-fA-F]{64}$/.test(v)) { out.value = ''; return; }
+  try { out.value = account ? await contract().hashOf($('dropId').value || 0, account, v) : '(连接钱包后自动计算)'; } catch { out.value = '(合约地址填好后自动计算)'; }
+}
+function restoreSecret() { const m = loadSaved(); const s = m[$('dropId').value || '0']; if (s && !$('secret').value) { $('secret').value = s; updateCommitment(); log('已从本地恢复 drop ' + ($('dropId').value||'0') + ' 的 secret'); } }
+
+$('btnCommit').onclick = async () => {
+  try {
+    const d = await contract().getDrop($('dropId').value || 0);
+    log(`提交中… 单价 ${ethers.formatEther(d.price)} MON`);
+    const tx = await contract().commit($('dropId').value || 0, $('commitment').value, { value: d.price });
+    await tx.wait(); setStep(3); log('✅ 提交上链！tx: ' + tx.hash, 'ok');
+  } catch (e) { log('❌ 提交失败：' + (e.shortMessage || e.message || e), 'err'); }
+};
+$('btnReveal').onclick = async () => {
+  try {
+    const v = $('secret').value.trim(); if (!/^0x[0-9a-fA-F]{64}$/.test(v)) return log('secret 格式不对（应为 0x + 64 hex）', 'err');
+    const tx = await contract().reveal($('dropId').value || 0, v); await tx.wait(); setStep(4);
+    log('✅ 揭示上链！你已进入候选池，tx: ' + tx.hash, 'ok');
+  } catch (e) { log('❌ 揭示失败：' + (e.shortMessage || e.message || e), 'err'); }
+};
+$('btnDraw').onclick = async () => {
+  try { const tx = await contract().draw($('dropId').value || 0); await tx.wait(); log('🎲 开奖完成！tx: ' + tx.hash, 'ok'); }
+  catch (e) { log('❌ 开奖失败（可能 reveal 窗口还没到）：' + (e.shortMessage || e.message || e), 'err'); }
+};
+$('btnCheck').onclick = async () => {
+  try {
+    const won = await contract().isWinner($('dropId').value || 0, account);
+    log(won ? '🎉🎉 你中签了！！截图发群里！' : '😢 未中签——点「一键退款」，钱原路退回', won ? 'ok' : 'err');
+  } catch (e) { log('查询失败：' + (e.shortMessage || e.message || e), 'err'); }
+};
+$('btnRefund').onclick = async () => {
+  try { const tx = await contract().claimRefund($('dropId').value || 0); await tx.wait(); log('✅ 已退款到你的钱包，tx: ' + tx.hash, 'ok'); }
+  catch (e) { log('❌ 退款失败（若中签则无需退款）：' + (e.shortMessage || e.message || e), 'err'); }
+};
+$('btnRefresh').onclick = async () => {
+  try {
+    const d = await contract().getDrop($('dropId').value || 0);
+    const now = BigInt(Math.floor(Date.now() / 1000));
+    const stage = d.drawn ? '已开奖' : now < d.commitDeadline ? '提交中' : now < d.revealDeadline ? '揭示中' : '等待开奖';
+    $('stName').textContent = d.name; $('stQuota').textContent = d.quota.toString();
+    $('stPrice').textContent = ethers.formatEther(d.price); $('stCommitted').textContent = `${d.committedCount} / ${d.revealedCount}`;
+    $('stStage').textContent = stage; $('stWinners').textContent = d.winners.toString();
+    $('stRevealed').textContent = `${d.revealedCount} / ${d.committedCount}`;
+    $('stWinners2').textContent = d.winners.toString();
+    $('stPending').textContent = (d.committedCount - d.winners).toString();
+    $('stProceeds').textContent = ethers.formatEther(d.proceeds);
+    log(`已刷新：${d.name} · ${stage}`, 'ok');
+  } catch (e) { log('刷新失败：' + (e.shortMessage || e.message || e), 'err'); }
+};
+$('btnSweep').onclick = async () => { try { const tx = await contract().sweep($('dropId').value || 0); await tx.wait(); log('💰 发行方提款完成，tx: ' + tx.hash, 'ok'); } catch (e) { log('提款失败（非发行方或尚未开奖）：' + (e.shortMessage || e.message || e), 'err'); } };
+$('btnCopyAddr').onclick = async () => { const v = $('contractAddr').value.trim(); try { await navigator.clipboard.writeText(v); log('已复制合约地址', 'ok'); } catch { log(v, 'ok'); } };
+$('btnCopyDrop').onclick = async () => { const v = $('dropId').value || '0'; try { await navigator.clipboard.writeText(v); log('已复制 Drop ID', 'ok'); } catch { log(v, 'ok'); } };
+setStep(1);
+</script>
+</body>
+</html>
