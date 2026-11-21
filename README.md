@@ -1,26 +1,16 @@
 # ⚡ BlitzFair · 公平抢票
 
-<p align="center">
-  <img src="assets/hero-robbery.jpg" alt="BlitzFair — 机器人在 0.01 秒内抢走门票" width="100%" />
-</p>
-
-<p align="center">
-  <a href="assets/blitzfair-demo.mp4"><b>▶ 72 秒演示视频（assets/blitzfair-demo.mp4）</b></a> ·
-  <a href="https://codinggeoff.github.io/blitzfair/">在线 Demo</a> ·
-  <a href="https://testnet.monadvision.com/address/0x3c7C1a994b2046b4bfaEC46AC2309B20c1D6825e">测试网合约</a>
-</p>
-
 > 把抢票从**速度竞赛**换成**公开抽签**。
 > Commit → Reveal → 链上抽签，一地址一单、足额托管、未中签自助全额退款。
 > 抽签消除的是速度优势；资金优势它不消除——看到第「已知限制」一节。
-> **演示 Drop #5**：演唱会门票 · 限量 10 张 · 0.01 MON · 预置 15 个候选（10 机器人 + 4 真人 + 主钱包），全程真实 commit-reveal 上链。
 
 | 两分钟自证 | 位置 |
 |---|---|
 | 公开仓库 | https://github.com/CodingGeoff/blitzfair |
 | 网页端（GitHub Pages，无需安装） | https://codinggeoff.github.io/blitzfair/ |
-| 合约（Monad 测试网 10143） | `0x3c7C1a994b2046b4bfaEC46AC2309B20c1D6825e` |
-| 源码验证 | Sourcify：creation **match** / runtime **match** · [查看](https://repo.sourcify.dev/10143/0x3c7C1a994b2046b4bfaEC46AC2309B20c1D6825e) |
+| 合约（Monad 测试网 10143，已验证） | [`0xC86cc765c6321b91FFF08aeF396043431a6FBfcc`](https://testnet.monadscan.com/address/0xC86cc765c6321b91FFF08aeF396043431a6FBfcc) |
+| 源码验证 | Sourcify：creation **match** / runtime **match** · [查看](https://repo.sourcify.dev/10143/0xC86cc765c6321b91FFF08aeF396043431a6FBfcc) |
+| 一场完整开奖（15 人下单 → 15 人揭示 → 10 人中签 → 5 笔退款） | 建场 [`0x0989e3c4…`](https://testnet.monadscan.com/tx/0x0989e3c462e2d9ba3aee2a5dbf07d560e3966d112411c0a9fb7ac4ff01416636) · 开奖 [`0x7b7382e2…`](https://testnet.monadscan.com/tx/0x7b7382e2cbf72a7499bac0a561e9a1e3c707ffa7a3132e196d851f8c9d1e272e) |
 | 一条命令复现整场发售 | `npm install && npm run demo` |
 
 > 测试网原型：使用测试币，无真实价值，未审计，不构成任何投资建议。

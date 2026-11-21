@@ -53,7 +53,8 @@ const ABI = [
 const provider = new ethers.JsonRpcProvider(RPC);
 async function txOpts() {
   const fee = await provider.getFeeData();
-  return fee.gasPrice ? { gasPrice: (fee.gasPrice * 7n) / 4n } : {};
+  // Monad 按 gas limit 预扣费用，别加太高溢价，否则每个账户的可用余额会被吃掉
+  return fee.gasPrice ? { gasPrice: (fee.gasPrice * 11n) / 10n } : {};
 }
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const fmt = (v) => ethers.formatEther(v);
@@ -121,7 +122,9 @@ async function waitUntil(ts, label) {
   const wallets = Array.from({ length: N }, () => ethers.Wallet.createRandom().connect(provider));
   const secrets = wallets.map(() => ethers.hexlify(ethers.randomBytes(32)));
   const d = d0;
-  const fund = PRICE + ethers.parseEther('0.03');
+  // 每个账户要发 2 笔交易（commit + reveal），Monad 按 gas limit 预扣，
+  // 所以不能只给"票价 + 一点点"，否则第二笔会因 Reserve Balance 直接回退。
+  const fund = PRICE + ethers.parseEther('0.15');
 
   // 资助必须由发行方逐个发（同一账户并发发交易会争 nonce）
   for (let i = 0; i < wallets.length; i++) {
@@ -152,7 +155,8 @@ async function waitUntil(ts, label) {
         await (await new ethers.Contract(contractAddr, ABI, w).reveal(dropId, secrets[idx], await txOpts())).wait();
         j++;
       } catch (e) {
-        console.log(`   ⚠️ 第 ${idx + 1} 个揭示失败：${String(e.shortMessage || e.message).slice(0, 70)}`);
+        const bal = await provider.getBalance(w.address).catch(() => 0n);
+        console.log(`   ⚠️ 第 ${idx + 1} 个揭示失败（余额 ${fmt(bal)} MON）：${String(e.shortMessage || e.message).slice(0, 60)}`);
       }
     }));
     process.stdout.write(`\r   ✅ 已揭示 ${j}/${N}   `);
