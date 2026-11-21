@@ -64,9 +64,24 @@
     <div><span class="pill" id="netPill">未连接</span><span class="pill">一地址一单</span><span class="pill">未中可自助退款</span><span class="pill" id="walletPill" style="display:none"></span></div>
     <label>合约（Monad 测试网 10143 · 下拉切换，演示时两个合约各有用途）</label>
     <select id="contractSel">
-      <option value="0xC86cc765c6321b91FFF08aeF396043431a6FBfcc">主合约 0xC86c…fcc · 完整开奖已验证</option>
-      <option value="0x3c7C1a994b2046b4bfaEC46AC2309B20c1D6825e">演示合约 0x3c7C…25e · Drop #5 今晚 19:48 开奖</option>
+      <option value="0xA90818C1c4557619De96BeEAb3E3A52BeC82B84A">V2 女巫防御版 0xA908…84A · 71 项测试全通过</option>
+      <option value="0xC86cc765c6321b91FFF08aeF396043431a6FBfcc">主合约（V1）0xC86c…fcc · 完整开奖已验证</option>
+      <option value="0x3c7C1a994b2046b4bfaEC46AC2309B20c1D6825e">演示合约（V1）0x3c7C…25e · Drop #5 今晚 19:48 开奖</option>
     </select>
+    <details style="margin-top:10px;padding:10px 12px;border:1px solid #e5e7eb;border-radius:10px;background:#fafafa">
+      <summary style="cursor:pointer;font-weight:600;font-size:13px">🛡️ V2 如何防女巫攻击（点开看机制与实测数据）</summary>
+      <div style="font-size:12.5px;line-height:1.75;margin-top:8px;color:#374151">
+        <p style="margin:0 0 8px"><b>第 1 层 · 保证金（bond）</b>：提交时必须随单缴纳，<b>揭示即全额退还</b>，不揭示则永久没收归发行方 → 批量小号占位从「免费」变成「每单固定成本」。</p>
+        <p style="margin:0 0 8px"><b>第 2 层 · 质押加权抽签</b>：中签权重正比于<b>质押额</b>，与地址数量无关（无放回累积权重采样）。0.1 MON 拆成 5 个 0.02 的小号，总权重仍是 0.1 —— 拆分不增权。</p>
+        <p style="margin:0 0 8px"><b>实测对照</b>（Monad 测试网，每模式 6 轮抽样）：<br>
+          · 加权模式：5 小号（合计权重 0.1）vs 1 地址（权重 0.1）→ <b>4 : 2</b>，无一方横扫；<br>
+          · 等概率模式：同规模对手 → 攻击方 <b>4/6 胜</b>，地址数量直接换胜率（这就是 V1 的漏洞）。
+        </p>
+        <p style="margin:0 0 8px"><b>验证方式</b>：<code>node scripts/test-v2.js</code> —— 71 项断言、195 笔真实上链交易、耗时约 7 分钟，全部通过；账目逐 wei 核对（Σ流入 − Σ流出 == 合约余额）。</p>
+        <p style="margin:0"><b>已知取舍</b>：随机数来自区块字段（可验证但非 VRF，高价值发售建议接 VRF）；加权抽签复杂度 O(k·n)，适配数千人规模；身份层仍靠经济抑制，未引入人格证明。</p>
+      </div>
+    </details>
+
     <label>选择 Drop（自动列出链上全部发售，默认选中最新一场未开奖的）</label>
     <div class="row" style="margin-top:0">
       <select id="dropPicker"></select>
@@ -152,6 +167,15 @@
       <div class="stat"><b id="stWinners2">—</b><span>中签人数</span></div>
       <div class="stat"><b id="stPending">—</b><span>待退款人数</span></div>
       <div class="stat"><b id="stProceeds">—</b><span>货款（MON）</span></div>
+      <div class="stat"><b id="stPending">—</b><span>待退款人数</span></div>
+      <div class="stat"><b id="stProceeds">—</b><span>货款（MON）</span></div>
+
+    <div id="v2Box" style="display:none;margin-top:8px;padding:8px 10px;border:1px dashed #a855f7;border-radius:8px;background:#faf5ff;font-size:12.5px">
+      <b>🛡️ V2 女巫防御参数</b><br/>
+      保证金（提交时缴、揭示即退、不揭示没收）：<span id="stBond">—</span> MON<br/>
+      抽签模式：<span id="stMode">—</span><br/>
+      我的质押（= 中签权重）：<span id="stMyStake">—</span>
+    </div>
     </div>
     <div class="row">
       <button class="ghost" id="btnSweep">💰 发行方提款（sweep）</button>
@@ -193,6 +217,31 @@ const ABI = [
   'function hasRefunded(uint256 dropId, address account) view returns (bool)',
   'function getDrop(uint256 dropId) view returns (tuple(address issuer,string name,uint256 quota,uint256 price,uint64 commitDeadline,uint64 revealDeadline,bool drawn,uint256 committedCount,uint256 revealedCount,uint256 winners,uint256 proceeds))'
 ];
+
+// V2（女巫防御版）：Drop 结构多出 bond / weighted，createDrop 多两个参数，需独立 ABI
+const ABI_V2 = [
+  'function createDrop(string name,uint256 quota,uint256 price,uint256 bond,uint64 commitSeconds,uint64 revealSeconds,bool weighted) returns (uint256)',
+  'function nextDropId() view returns (uint256)',
+  'function hashOf(uint256 dropId, address account, bytes32 secret) view returns (bytes32)',
+  'function commit(uint256 dropId, bytes32 commitment) payable',
+  'function reveal(uint256 dropId, bytes32 secret)',
+  'function draw(uint256 dropId)',
+  'function claimRefund(uint256 dropId)',
+  'function isWinner(uint256 dropId, address account) view returns (bool)',
+  'function sweep(uint256 dropId)',
+  'function eligibleCount(uint256 dropId) view returns (uint256)',
+  'function hasCommitted(uint256 dropId, address account) view returns (bool)',
+  'function hasRevealed(uint256 dropId, address account) view returns (bool)',
+  'function hasRefunded(uint256 dropId, address account) view returns (bool)',
+  'function stakeOf(uint256 dropId, address account) view returns (uint256)',
+  'function version() view returns (uint256)',
+  'function getDrop(uint256 dropId) view returns (tuple(address issuer,string name,uint256 quota,uint256 price,uint256 bond,uint64 commitDeadline,uint64 revealDeadline,bool weighted,bool drawn,uint256 committedCount,uint256 revealedCount,uint256 winners,uint256 proceeds))'
+];
+
+// 已知 V2 合约地址 → 自动切换 ABI（新增 V2 部署只需在这里登记）
+const V2_ADDRESSES = ['0xA90818C1c4557619De96BeEAb3E3A52BeC82B84A'];
+const abiFor = (addr) => V2_ADDRESSES.some(a => a.toLowerCase() === String(addr).toLowerCase()) ? ABI_V2 : ABI;
+const isV2 = () => abiFor($('contractSel').value) === ABI_V2;
 const RPC_CANDIDATES = [
   'https://testnet-rpc.monad.xyz',
   'https://monad-testnet.drpc.org',
@@ -264,7 +313,7 @@ let curDrop = null, curStage = null, lastNextId = null;
     await refreshAll(true);
   } catch (e) { log('只读节点连接失败：' + e.message, 'err'); }
 })();
-const contract = () => new ethers.Contract($('contractSel').value, ABI, signer ?? provider);
+const contract = () => new ethers.Contract($('contractSel').value, abiFor($('contractSel').value), signer ?? provider);
 const loadSaved = () => { try { return JSON.parse(localStorage.getItem('blitzfair_secrets') || '{}'); } catch { return {}; } };
 const saveSecret = (dropId, secret) => { const m = loadSaved(); m[dropId] = secret; localStorage.setItem('blitzfair_secrets', JSON.stringify(m)); };
 
@@ -350,6 +399,20 @@ async function refreshAll(quiet) {
     $('stWinners2').textContent = d.winners.toString();
     $('stPending').textContent = (d.committedCount - d.winners).toString();
     $('stProceeds').textContent = ethers.formatEther(d.proceeds);
+    // V2 专属：保证金、抽签模式、我的质押权重
+    const v2Box = $('v2Box');
+    if (v2Box) {
+      if (isV2()) {
+        v2Box.style.display = '';
+        $('stBond').textContent = ethers.formatEther(d.bond);
+        $('stMode').textContent = d.weighted ? '质押加权抽签（女巫中性）' : '等概率抽签';
+        let myStake = '—';
+        if (signer) { try { const st = await contract().stakeOf(id, await signer.getAddress()); myStake = ethers.formatEther(st) + ' MON'; } catch (_) {} }
+        $('stMyStake').textContent = myStake;
+      } else {
+        v2Box.style.display = 'none';
+      }
+    }
     $('deadlines').innerHTML =
       `提交截止：${fmtBJ(d.commitDeadline)}（北京时间）<br/>揭示截止：${fmtBJ(d.revealDeadline)}（北京时间）<br/><span id="countdown"></span>`;
     const banner = $('stageBanner');

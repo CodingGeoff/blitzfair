@@ -1,0 +1,42 @@
+{
+  "contract": "0xA90818C1c4557619De96BeEAb3E3A52BeC82B84A",
+  "ranAt": "2026-11-21T10:06:53.636Z",
+  "rounds": 6,
+  "assertions": {
+    "passed": 71,
+    "failed": 0,
+    "failures": []
+  },
+  "transactions": 195,
+  "spendMon": "9.333525553",
+  "durationSec": 416,
+  "weighted": {
+    "honestSingleAddressWins": 4,
+    "validRounds": 6
+  },
+  "equalControl": {
+    "honestSingleAddressWins": 2,
+    "validRounds": 6
+  },
+  "drops": {
+    "eq": 0,
+    "q": 1,
+    "n": 2,
+    "w": [
+      3,
+      4,
+      5,
+      6,
+      7,
+      8
+    ],
+    "c": [
+      9,
+      10,
+      11,
+      12,
+      13,
+      14
+    ]
+  }
+}

@@ -20,3 +20,4 @@ broadcast/
 # 杂项
 *.log
 .DS_Store
+.test-wallet-pool.json
