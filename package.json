@@ -10,7 +10,10 @@
     "demo": "node scripts/local-demo.js",
     "sim": "node sim/simulate.js",
     "agent": "node agent/blitzfair-agent.js",
-    "test": "forge test"
+    "test": "forge test",
+    "sim:side": "node sim/sidebyside.js",
+    "sim:sybil": "node sim/sybil-sim.js",
+    "verify": "echo 'see README: Sourcify match/match'"
   },
   "keywords": [
     "monad",

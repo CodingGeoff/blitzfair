@@ -182,6 +182,21 @@ async function waitUntil(ts, label) {
   await (await issuerTx((o) => asIssuer.sweep(dropId, o))).wait();
   log(`💰 发行方提款完成 · 合约余额 ${fmt(await provider.getBalance(contractAddr))} MON`);
 
+  // 把本次演示的证据写成一个文件，方便截图脚本 / 提交材料复用（已在 .gitignore 中）
+  const evidence = {
+    network: 'Monad Testnet (chain 10143)',
+    contract: contractAddr,
+    dropId: Number(dropId),
+    createTx: rc.hash,
+    drawTx: drawRc.hash,
+    winners: Number(after.winners),
+    proceeds: fmt(after.proceeds),
+    refunded,
+    finishedAt: new Date().toISOString(),
+  };
+  fs.writeFileSync(path.join(__dirname, '..', 'agent', 'last-demo.json'), JSON.stringify(evidence, null, 2));
+  log(`   证据已写入 agent/last-demo.json（已 gitignore）`);
+
   log(`\n🏁 全流程完成。Drop #${dropId}`);
   log(`   开奖交易：${drawRc.hash}`);
   log(`   账户明细可在区块浏览器按地址查看；合约 ${contractAddr}`);
