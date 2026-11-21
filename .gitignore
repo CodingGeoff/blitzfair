@@ -4,3 +4,5 @@ out/
 cache/
 broadcast/
 .DS_Store
+agent-state.json
+demo-drop-secrets.json

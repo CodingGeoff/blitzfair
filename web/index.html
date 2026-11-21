@@ -53,7 +53,7 @@
     <h2>📣 本场 Drop</h2>
     <div><span class="pill" id="netPill">未连接</span><span class="pill">一地址一单</span><span class="pill">未中全额退款</span></div>
     <label>合约地址</label>
-    <input id="contractAddr" placeholder="0x…（部署后粘贴）" />
+    <input id="contractAddr" value="0x3c7C1a994b2046b4bfaEC46AC2309B20c1D6825e" />
     <label>Drop ID</label>
     <input id="dropId" value="0" />
     <div class="row"><button class="ghost" id="btnRefresh">刷新 Drop 状态</button></div>
@@ -102,6 +102,33 @@
     </div>
   </div>
 
+  <div class="card">
+    <h2>📊 发售方对账看板</h2>
+    <p class="dim" style="font-size:12px">发行方视角：实时链上对账——谁下了单、谁 reveal 了、中签多少、待退款多少、货款何时提。</p>
+    <div class="grid">
+      <div class="stat"><b id="stRevealed">—</b><span>已揭示 / 已提交</span></div>
+      <div class="stat"><b id="stWinners2">—</b><span>中签人数</span></div>
+      <div class="stat"><b id="stPending">—</b><span>待退款人数</span></div>
+      <div class="stat"><b id="stProceeds">—</b><span>货款（MON）</span></div>
+    </div>
+    <div class="row">
+      <button class="ghost" id="btnSweep">💰 发行方提款（sweep）</button>
+      <button class="ghost" id="btnCopyAddr">复制合约地址</button>
+      <button class="ghost" id="btnCopyDrop">复制 Drop ID</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>🤖 BlitzFair Agent · 守发售智能体</h2>
+    <p class="dim" style="font-size:12px">设定一次，它全自动帮你走完 提交 → 揭示 → 开奖 → 退款 全流程。可选接 LLM（配 LLM_API_KEY）用中文口令操控；不配置则用零依赖规则引擎（一样好用）。</p>
+    <div style="background:#0a0718;border:1px solid var(--line);border-radius:12px;padding:12px;font-family:ui-monospace,monospace;font-size:12px;line-height:2;color:var(--mono)">
+      node agent/blitzfair-agent.js watch --drop 5&nbsp;&nbsp;&nbsp;&nbsp;# 守发售：全自动到退款<br/>
+      node agent/blitzfair-agent.js chat "帮我抢 5 号发售"&nbsp;&nbsp;# 中文口令下单<br/>
+      node agent/blitzfair-agent.js chat "我那单中奖了吗"&nbsp;&nbsp;# → 自动查中签
+    </div>
+    <div style="margin-top:10px"><span class="pill">AI Agent 原生</span><span class="pill">x402 微支付 · 路线图（发售方/用户按次付费）</span><span class="pill">LLM 可选 + 规则兜底</span></div>
+  </div>
+
   <div id="log" class="dim">等待操作…</div>
 </div>
 
@@ -115,6 +142,7 @@ const ABI = [
   'function draw(uint256 dropId)',
   'function claimRefund(uint256 dropId)',
   'function isWinner(uint256 dropId, address account) view returns (bool)',
+  'function sweep(uint256 dropId)',
   'function eligibleCount(uint256 dropId) view returns (uint256)',
   'function getDrop(uint256 dropId) view returns (tuple(address issuer,string name,uint256 quota,uint256 price,uint64 commitDeadline,uint64 revealDeadline,bool drawn,uint256 committedCount,uint256 revealedCount,uint256 winners,uint256 proceeds))'
 ];
@@ -196,9 +224,16 @@ $('btnRefresh').onclick = async () => {
     $('stName').textContent = d.name; $('stQuota').textContent = d.quota.toString();
     $('stPrice').textContent = ethers.formatEther(d.price); $('stCommitted').textContent = `${d.committedCount} / ${d.revealedCount}`;
     $('stStage').textContent = stage; $('stWinners').textContent = d.winners.toString();
+    $('stRevealed').textContent = `${d.revealedCount} / ${d.committedCount}`;
+    $('stWinners2').textContent = d.winners.toString();
+    $('stPending').textContent = (d.committedCount - d.winners).toString();
+    $('stProceeds').textContent = ethers.formatEther(d.proceeds);
     log(`已刷新：${d.name} · ${stage}`, 'ok');
   } catch (e) { log('刷新失败：' + (e.shortMessage || e.message || e), 'err'); }
 };
+$('btnSweep').onclick = async () => { try { const tx = await contract().sweep($('dropId').value || 0); await tx.wait(); log('💰 发行方提款完成，tx: ' + tx.hash, 'ok'); } catch (e) { log('提款失败（非发行方或尚未开奖）：' + (e.shortMessage || e.message || e), 'err'); } };
+$('btnCopyAddr').onclick = async () => { const v = $('contractAddr').value.trim(); try { await navigator.clipboard.writeText(v); log('已复制合约地址', 'ok'); } catch { log(v, 'ok'); } };
+$('btnCopyDrop').onclick = async () => { const v = $('dropId').value || '0'; try { await navigator.clipboard.writeText(v); log('已复制 Drop ID', 'ok'); } catch { log(v, 'ok'); } };
 setStep(1);
 </script>
 </body>
