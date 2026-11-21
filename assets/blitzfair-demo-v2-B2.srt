@@ -1,0 +1,84 @@
+1
+00:00:00,000 --> 00:00:12,033
+为什么做 BlitzFair？限量发售被脚本垄断，普通人没机会
+Why BlitzFair? Limited drops are monopolized by bots
+
+2
+00:00:12,033 --> 00:00:24,067
+加验证码、限购只是抬高门槛，规则还是快者得
+Captchas and limits only raise the bar — fastest still wins
+
+3
+00:00:24,067 --> 00:00:36,100
+我们把「谁有资格买」从速度问题改成概率问题
+We turn 'who gets to buy' from speed into probability
+
+4
+00:00:36,100 --> 00:00:42,100
+BlitzFair · 把抢票从速度竞赛换成公开抽签
+BlitzFair · Turning ticket rushes from a speed race into a public lottery
+
+5
+00:00:42,100 --> 00:00:56,100
+这是公开仓库的 README：合约地址、网页端、完整开奖证据都在这里
+Public README: contract address, web app, and full draw evidence
+
+6
+00:00:56,100 --> 00:01:06,100
+打开网页端：不用安装，连接钱包就能走完提交 → 揭示 → 开奖 → 退款
+Web app: no install — connect a wallet for commit → reveal → draw → refund
+
+7
+00:01:06,100 --> 00:01:16,100
+四步全在一条链上：提交只交哈希，谁先谁后不影响结果
+Four steps on one chain: commit sends only a hash — order doesn't matter
+
+8
+00:01:16,100 --> 00:01:24,100
+发行方对账看板：谁下了单、中签多少、待退款多少，一目了然
+Issuer dashboard: orders, winners, and pending refunds at a glance
+
+9
+00:01:24,100 --> 00:01:36,100
+终端模拟：60 个抢购脚本 vs 44 个普通用户，限量 10 张
+Terminal sim: 60 scalper bots vs 44 normal users, 10 tickets
+
+10
+00:01:36,100 --> 00:01:52,100
+先到先得：普通用户 0/10。BlitzFair 抽签：人人等概率
+First-come-first-served: 0/10 for users. Lottery: equal odds for everyone
+
+11
+00:01:52,100 --> 00:02:04,100
+三窗口同屏：左边网页端实时数据，右上模拟器对照，右下链上实时查询
+Three windows: web app (left), simulator (top-right), live chain (bottom-right)
+
+12
+00:02:04,100 --> 00:02:18,100
+抽签下每个订单中签概率相同：9.6%，与下单先后无关
+Every order has the same 9.6% chance — order doesn't matter
+
+13
+00:02:18,100 --> 00:02:28,100
+诚实讲限制：抽签消除速度优势，不消除资金优势
+Honest limits: lottery removes speed advantage, not money advantage
+
+14
+00:02:28,100 --> 00:02:38,100
+所以对外只说「把速度竞赛换成公开抽签」，不说「杜绝黄牛」
+We say public lottery — never scalper-proof
+
+15
+00:02:38,100 --> 00:02:54,100
+守发售 Agent：设定一次，全自动走完提交 → 揭示 → 开奖 → 退款
+Guardian agent: set once, auto-runs commit → reveal → draw → refund
+
+16
+00:02:54,100 --> 00:03:08,100
+链上证据：15 人下单 → 15 人揭示 → 10 人中签，全部可查
+On-chain evidence: 15 orders → 15 reveals → 10 winners, all verifiable
+
+17
+00:03:08,100 --> 00:03:14,100
+先到先得 = 0 公平 · BlitzFair = 人人等概率
+First-come-first-served = zero fairness · BlitzFair = equal odds
