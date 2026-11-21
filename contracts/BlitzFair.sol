@@ -3,12 +3,12 @@ pragma solidity ^0.8.24;
 
 /// @title BlitzFair · 链上公平秒杀分配器
 /// @notice commit → reveal → 单块批量随机分配。
-///         先到先得的时代结束了：机器人抢跑没有意义，名额只看运气。
+///         开售瞬间的脚本抢跑不再有效：名额由等概率抽签决定。
 contract BlitzFair {
     // ============ 数据结构 ============
     struct Drop {
         address issuer;         // 发起方（品牌方/主办方）
-        string  name;           // "演唱会门票 · 限量10张"
+        string  name;           // 场次名称，例如 "演示发售 · 限量 10 份"
         uint256 quota;          // 名额
         uint256 price;          // 单价（wei，MON）
         uint64  commitDeadline; // 提交截止

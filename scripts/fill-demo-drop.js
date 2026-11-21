@@ -1,15 +1,17 @@
 #!/usr/bin/env node
 /**
- * 演示发售预置脚本（现场 demo 用）
- * 在测试网上为演示 Drop 制造真实参与：黄牛 bot 地址 + 真人地址，全程真 commit。
- * 开奖只需当众点一次 draw() —— 全场见证真实链上结果。
+ * 演示发售填充脚本：为一场已创建的发售补上真实的候选订单。
+ * 每次运行都会生成一次性测试钱包、资助它们、各自 commit，全部是真实链上交易。
  *
  * 用法：
- *   node scripts/fill-demo-drop.js fill   --drop 1 --bots 10 --humans 4 [--include-main 1]
+ *   node scripts/fill-demo-drop.js fill   --drop 1 --accounts 12
  *   node scripts/fill-demo-drop.js reveal --drop 1
  *   node scripts/fill-demo-drop.js check  --drop 1
  *
- * 机密：预置钱包私钥/secret 存 agent/demo-drop-secrets.json（已 gitignore，不会上链/上传）
+ * 注意
+ *  - 一次性测试钱包与 secret 只用于本地演示，写入 agent/demo-seed.json，
+ *    该文件已在 .gitignore 中，不入库、不上链、不要提交。
+ *  - 若演示用的地址被清空，重新跑一次 fill 即可。
  */
 'use strict';
 const fs = require('fs');
@@ -25,7 +27,7 @@ if (fs.existsSync(envPath)) {
 }
 const RPC = process.env.RPC || 'https://testnet-rpc.monad.xyz';
 const CONTRACT = process.env.CONTRACT;
-const SECRETS = path.join(__dirname, '..', 'agent', 'demo-drop-secrets.json');
+const SECRETS = path.join(__dirname, '..', 'agent', 'demo-seed.json');
 const args = process.argv.slice(2);
 const CMD = args[0] || 'check';
 const opt = (n, d) => { const i = args.indexOf('--' + n); return i === -1 ? d : args[i + 1]; };
@@ -57,13 +59,12 @@ const saveSec = s => fs.writeFileSync(SECRETS, JSON.stringify(s, null, 2), { mod
   console.log(`Drop #${DROP}「${d.name}」单价 ${ethers.formatEther(price)} MON · 已提交 ${d.committedCount} / 已揭示 ${d.revealedCount}`);
 
   if (CMD === 'fill') {
-    const BOTS = parseInt(opt('bots', '10'), 10), HUMANS = parseInt(opt('humans', '4'), 10);
+    const COUNT = parseInt(opt('accounts', process.env.DEMO_ACCOUNTS || '14'), 10);
     const incMain = opt('include-main', '0') === '1';
     const sec = loadSec(); const key = DROP.toString(); sec[key] = sec[key] || [];
     const mk = (label) => { const w = ethers.Wallet.createRandom(); return { label, address: w.address, privateKey: w.privateKey, secret: ethers.hexlify(ethers.randomBytes(32)) }; };
-    const entries = [...Array(BOTS)].map((_, i) => mk(`bot_${String(i).padStart(2, '0')}`))
-      .concat([...Array(HUMANS)].map((_, i) => mk(`user_${String(i).padStart(2, '0')}`)));
-    if (incMain) entries.push({ label: 'main_wallet（我们自己）', address: main.address, privateKey: main.privateKey, secret: ethers.hexlify(ethers.randomBytes(32)) });
+    const entries = [...Array(COUNT)].map((_, i) => mk(`account_${String(i + 1).padStart(2, '0')}`));
+    if (incMain) entries.push({ label: 'issuer_wallet', address: main.address, privateKey: main.privateKey, secret: ethers.hexlify(ethers.randomBytes(32)) });
 
     console.log(`准备资助并提交 ${entries.length} 个候选地址…`);
     // Monad 测试网 gas ≈ 102 gwei，给 0.025 MON 足够走完整流程
@@ -93,7 +94,7 @@ const saveSec = s => fs.writeFileSync(SECRETS, JSON.stringify(s, null, 2), { mod
     console.log(`🎉 预置完成：本 drop 共 ${sec[key].length} 个候选订单（含之前）`);
   } else if (CMD === 'reveal') {
     const sec = loadSec(); const entries = sec[DROP.toString()] || [];
-    if (!entries.length) throw new Error(`agent/demo-drop-secrets.json 里没有 Drop #${DROP} 的记录`);
+    if (!entries.length) throw new Error(`agent/demo-seed.json 里没有 Drop #${DROP} 的记录，先跑一次 fill`);
     for (const e of entries) {
       if (e.revealed) continue;
       const signer = e.address === main.address ? main : new ethers.Wallet(e.privateKey, provider);

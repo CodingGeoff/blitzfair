@@ -132,7 +132,8 @@
   <div id="log" class="dim">等待操作…</div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/ethers@6.13.4/dist/ethers.umd.min.js"></script>
+<!-- ethers v6 随仓库一起托管，不依赖任何外部 CDN（国内访问更稳） -->
+<script src="./ethers.umd.min.js"></script>
 <script>
 const ABI = [
   'function createDrop(string name,uint256 quota,uint256 price,uint64 commitSeconds,uint64 revealSeconds) returns (uint256)',
@@ -146,13 +147,38 @@ const ABI = [
   'function eligibleCount(uint256 dropId) view returns (uint256)',
   'function getDrop(uint256 dropId) view returns (tuple(address issuer,string name,uint256 quota,uint256 price,uint64 commitDeadline,uint64 revealDeadline,bool drawn,uint256 committedCount,uint256 revealedCount,uint256 winners,uint256 proceeds))'
 ];
-const MONAD_TESTNET = { chainId: '0x279F', chainName: 'Monad Testnet', nativeCurrency: { name: 'MON', symbol: 'MON', decimals: 18 }, rpcUrls: ['https://testnet-rpc.monad.xyz'], blockExplorerUrls: ['https://testnet.monadexplorer.com'] };
+const RPC_CANDIDATES = [
+  'https://testnet-rpc.monad.xyz',
+  'https://monad-testnet.drpc.org',
+  'https://rpc.ankr.com/monad_testnet'
+];
+const MONAD_TESTNET = { chainId: '0x279F', chainName: 'Monad Testnet', nativeCurrency: { name: 'MON', symbol: 'MON', decimals: 18 }, rpcUrls: RPC_CANDIDATES, blockExplorerUrls: ['https://testnet.monadscan.com'] };
+
+// 依次探测 RPC，选第一个响应的（钱包里也可能没配这个网络）
+async function pickRpc() {
+  for (const url of RPC_CANDIDATES) {
+    try {
+      const p = new ethers.JsonRpcProvider(url, 10143, { staticNetwork: true });
+      const id = await p.send('eth_chainId', []);
+      if (id === '0x279f') return p;
+    } catch (_) { /* 换下一个 */ }
+  }
+  throw new Error('所有 RPC 都不通，检查网络或换一个节点');
+}
 
 const $ = (id) => document.getElementById(id);
 const log = (msg, cls) => { const el = $('log'); const t = new Date().toLocaleTimeString('zh-CN', {hour12:false}); el.innerHTML += `\n<span class="${cls||'dim'}">[${t}] ${msg}</span>`; el.scrollTop = el.scrollHeight; };
 const setStep = (n) => { for (let i=1;i<=4;i++){ const s=$('s'+i); s.classList.toggle('active', i===n); if(i<n) s.classList.add('done'); } };
 
 let provider, signer, account;
+
+// 未连接钱包时也能查询链上状态（只读）
+(async () => {
+  try {
+    provider = await pickRpc();
+    log('只读节点已就绪，可直接点「刷新 Drop 状态」查看链上数据', 'ok');
+  } catch (e) { log('只读节点连接失败：' + e.message, 'err'); }
+})();
 const contract = () => new ethers.Contract($('contractAddr').value.trim(), ABI, signer ?? provider);
 const loadSaved = () => { try { return JSON.parse(localStorage.getItem('blitzfair_secrets') || '{}'); } catch { return {}; } };
 const saveSecret = (dropId, secret) => { const m = loadSaved(); m[dropId] = secret; localStorage.setItem('blitzfair_secrets', JSON.stringify(m)); };
@@ -165,6 +191,9 @@ $('btnConnect').onclick = async () => {
   $('btnConnect').textContent = account.slice(0,6) + '…' + account.slice(-4);
   $('netPill').textContent = '已连接 · 链 ' + (await provider.getNetwork()).chainId;
   setStep(2); log('钱包已连接：' + account, 'ok'); restoreSecret();
+  const net = await provider.getNetwork();
+  if (Number(net.chainId) !== 10143) log('⚠️ 当前钱包不在 Monad 测试网（10143），点右上角「切换到 Monad 测试网」', 'err');
+
 };
 $('btnSwitch').onclick = async () => {
   if (!window.ethereum) return;
@@ -209,7 +238,7 @@ $('btnDraw').onclick = async () => {
 $('btnCheck').onclick = async () => {
   try {
     const won = await contract().isWinner($('dropId').value || 0, account);
-    log(won ? '🎉🎉 你中签了！！截图发群里！' : '😢 未中签——点「一键退款」，钱原路退回', won ? 'ok' : 'err');
+    log(won ? '🎉 你中签了，货款已锁定给发行方' : '未中签——点「一键退款」，金额原路退回', won ? 'ok' : 'err');
   } catch (e) { log('查询失败：' + (e.shortMessage || e.message || e), 'err'); }
 };
 $('btnRefund').onclick = async () => {
