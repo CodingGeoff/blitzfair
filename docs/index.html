@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>BlitzFair · 公平抢票｜把速度竞赛换成公开抽签</title>
 <style>
-  :root { --bg:#0f0a1e; --card:#1a1430; --line:#2e2454; --purple:#836ef9; --mono:#b4befe; --green:#34d399; --red:#fb7185; --text:#e9e6ff; --dim:#8f89b8; }
+  :root { --bg:#0f0a1e; --card:#1a1430; --line:#2e2454; --purple:#836ef9; --mono:#b4befe; --green:#34d399; --red:#fb7185; --text:#e9e6ff; --dim:#8f89b8; --amber:#fbbf24; --blue:#60a5fa; }
   * { box-sizing: border-box; margin: 0; }
   body { background: radial-gradient(1200px 600px at 50% -10%, #2a1e5e 0%, var(--bg) 55%); color: var(--text);
          font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; min-height: 100vh; }
@@ -18,13 +18,16 @@
            font-weight:700; font-size:15px; cursor:pointer; transition:.15s; }
   button:hover { filter: brightness(1.1); }
   button.ghost { background: transparent; color: var(--mono); border:1px solid var(--line); }
-  button:disabled { opacity:.4; cursor:not-allowed; }
+  button:disabled { opacity:.35; cursor:not-allowed; }
   .card { background: var(--card); border:1px solid var(--line); border-radius:16px; padding:18px; margin-top:16px; }
   .card h2 { font-size:16px; color:var(--mono); margin-bottom:12px; letter-spacing:1px; }
   label { display:block; font-size:12px; color:var(--dim); margin:10px 0 4px; }
-  input { width:100%; background:#120d26; border:1px solid var(--line); color:var(--text);
+  input, select { width:100%; background:#120d26; border:1px solid var(--line); color:var(--text);
           border-radius:10px; padding:10px 12px; font-size:14px; font-family: ui-monospace, monospace; }
-  .row { display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; }
+  select { cursor:pointer; }
+  .row { display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; align-items:center; }
+  .row > * { flex: 0 1 auto; }
+  .row input, .row select { flex: 1 1 200px; }
   .pill { display:inline-block; background:#241d47; color:var(--mono); border-radius:999px; padding:3px 12px; font-size:12px; margin-right:6px; }
   .grid { display:grid; grid-template-columns: repeat(auto-fit,minmax(150px,1fr)); gap:10px; }
   .stat { background:#120d26; border:1px solid var(--line); border-radius:12px; padding:10px 12px; }
@@ -37,6 +40,12 @@
   .step { flex:1; min-width:150px; text-align:center; border:1px solid var(--line); border-radius:12px; padding:10px 6px; color:var(--dim); font-size:13px; }
   .step.active { border-color:var(--purple); color:var(--text); box-shadow:0 0 18px rgba(131,110,249,.35); }
   .step.done { border-color:var(--green); color:var(--green); }
+  .banner { border-radius:12px; padding:12px 14px; font-size:14px; line-height:1.6; margin-bottom:12px; border:1px solid var(--line); background:#120d26; }
+  .banner.commit { border-color: var(--green); } .banner.reveal { border-color: var(--amber); }
+  .banner.waitdraw { border-color: var(--blue); } .banner.drawn { border-color: var(--purple); }
+  .banner b { font-size:15px; }
+  .hint { font-size:12px; color: var(--dim); margin-top:6px; }
+  .cd-grid { display:grid; grid-template-columns: repeat(auto-fit,minmax(140px,1fr)); gap:10px; }
 </style>
 </head>
 <body>
@@ -51,12 +60,24 @@
 
   <div class="card">
     <h2>📣 本场 Drop</h2>
-    <div><span class="pill" id="netPill">未连接</span><span class="pill">一地址一单</span><span class="pill">未中可自助退款</span></div>
-    <label>合约地址</label>
-    <input id="contractAddr" value="0xC86cc765c6321b91FFF08aeF396043431a6FBfcc" />
-    <label>Drop ID</label>
-    <input id="dropId" value="0" />
-    <div class="row"><button class="ghost" id="btnRefresh">刷新 Drop 状态</button></div>
+    <div id="stageBanner" class="banner">加载中…</div>
+    <div><span class="pill" id="netPill">未连接</span><span class="pill">一地址一单</span><span class="pill">未中可自助退款</span><span class="pill" id="walletPill" style="display:none"></span></div>
+    <label>合约（Monad 测试网 10143 · 下拉切换，演示时两个合约各有用途）</label>
+    <select id="contractSel">
+      <option value="0xC86cc765c6321b91FFF08aeF396043431a6FBfcc">主合约 0xC86c…fcc · 完整开奖已验证</option>
+      <option value="0x3c7C1a994b2046b4bfaEC46AC2309B20c1D6825e">演示合约 0x3c7C…25e · Drop #5 今晚 19:48 开奖</option>
+    </select>
+    <label>选择 Drop（自动列出链上全部发售，默认选中最新一场未开奖的）</label>
+    <div class="row" style="margin-top:0">
+      <select id="dropPicker"></select>
+      <button class="ghost" id="btnReloadList">刷新列表</button>
+    </div>
+    <label>或手动输入 Drop ID</label>
+    <input id="dropId" value="5" />
+    <div class="row">
+      <button class="ghost" id="btnRefresh">刷新 Drop 状态</button>
+      <label style="display:flex;align-items:center;gap:6px;margin:0;font-size:12px"><input type="checkbox" id="autoRefresh" checked style="width:auto" /> 每 15 秒自动刷新</label>
+    </div>
     <div class="grid" style="margin-top:12px">
       <div class="stat"><b id="stName">—</b><span>Drop 名称</span></div>
       <div class="stat"><b id="stQuota">—</b><span>名额（quota）</span></div>
@@ -65,6 +86,7 @@
       <div class="stat"><b id="stStage">—</b><span>当前阶段</span></div>
       <div class="stat"><b id="stWinners">—</b><span>中签人数</span></div>
     </div>
+    <div id="deadlines" class="dim" style="font-size:12px;margin-top:10px;line-height:1.8"></div>
   </div>
 
   <div class="steps">
@@ -85,12 +107,14 @@
     <label>你的 commitment（= keccak256(dropId, address, secret)）</label>
     <input id="commitment" placeholder="生成 secret 后自动计算" readonly />
     <div class="row"><button id="btnCommit">提交订单（支付单价）</button></div>
+    <p class="hint" id="commitHint"></p>
   </div>
 
   <div class="card">
     <h2>③ 揭示（reveal）</h2>
     <p class="dim" style="font-size:12px">提交窗口结束后，用同一个 secret 揭示。未 reveal 的人不参与抽签、可退款。</p>
     <div class="row"><button id="btnReveal" class="ghost">揭示我的订单</button></div>
+    <p class="hint" id="revealHint"></p>
   </div>
 
   <div class="card">
@@ -100,6 +124,24 @@
       <button id="btnCheck" class="ghost">我中签了吗？</button>
       <button id="btnRefund" class="ghost">未中奖 → 一键退款</button>
     </div>
+    <p class="hint" id="drawHint"></p>
+  </div>
+
+  <div class="card">
+    <h2>🎬 创建新发售（演示/活动用）</h2>
+    <p class="dim" style="font-size:12px">想让现场观众一起玩？在这里开一场新的：提交窗口 → 揭示窗口 → 开奖，全程上链。</p>
+    <div class="cd-grid" style="margin-top:8px">
+      <div><label>名称</label><input id="cdName" value="现场快闪发售" /></div>
+      <div><label>名额</label><input id="cdQuota" value="10" /></div>
+      <div><label>单价（MON）</label><input id="cdPrice" value="0.01" /></div>
+      <div><label>提交窗口（秒，≥60）</label><input id="cdCommit" value="120" /></div>
+      <div><label>揭示窗口（秒，≥60）</label><input id="cdReveal" value="120" /></div>
+    </div>
+    <div class="row">
+      <button id="btnCreate">创建发售</button>
+      <button class="ghost" id="btnPreset">填入演示预设（120s + 120s）</button>
+    </div>
+    <p class="hint">创建后页面会自动切换到新 Drop。记得把 Drop ID 告诉观众。</p>
   </div>
 
   <div class="card">
@@ -137,6 +179,7 @@
 <script>
 const ABI = [
   'function createDrop(string name,uint256 quota,uint256 price,uint64 commitSeconds,uint64 revealSeconds) returns (uint256)',
+  'function nextDropId() view returns (uint256)',
   'function hashOf(uint256 dropId, address account, bytes32 secret) view returns (bytes32)',
   'function commit(uint256 dropId, bytes32 commitment) payable',
   'function reveal(uint256 dropId, bytes32 secret)',
@@ -145,6 +188,9 @@ const ABI = [
   'function isWinner(uint256 dropId, address account) view returns (bool)',
   'function sweep(uint256 dropId)',
   'function eligibleCount(uint256 dropId) view returns (uint256)',
+  'function hasCommitted(uint256 dropId, address account) view returns (bool)',
+  'function hasRevealed(uint256 dropId, address account) view returns (bool)',
+  'function hasRefunded(uint256 dropId, address account) view returns (bool)',
   'function getDrop(uint256 dropId) view returns (tuple(address issuer,string name,uint256 quota,uint256 price,uint64 commitDeadline,uint64 revealDeadline,bool drawn,uint256 committedCount,uint256 revealedCount,uint256 winners,uint256 proceeds))'
 ];
 const RPC_CANDIDATES = [
@@ -170,18 +216,167 @@ const $ = (id) => document.getElementById(id);
 const log = (msg, cls) => { const el = $('log'); const t = new Date().toLocaleTimeString('zh-CN', {hour12:false}); el.innerHTML += `\n<span class="${cls||'dim'}">[${t}] ${msg}</span>`; el.scrollTop = el.scrollHeight; };
 const setStep = (n) => { for (let i=1;i<=4;i++){ const s=$('s'+i); s.classList.toggle('active', i===n); if(i<n) s.classList.add('done'); } };
 
+// 把合约的 revert 原因翻译成中文 + 下一步该怎么做
+const ERR_MAP = [
+  [/already drawn/i, '这个 Drop 已经开过奖，全部操作已关闭。请在上方下拉列表里切换到其他 Drop（优先选「揭示中」或「等待开奖」的）。'],
+  [/commit closed/i, '提交窗口已关闭，不再接受新订单。请切换到「提交中」的 Drop，或在下方「创建新发售」里开一场新的。'],
+  [/reveal closed/i, '揭示窗口已关闭。等页面倒计时归零后点「触发开奖」即可，或切换 Drop。'],
+  [/reveal still open/i, '揭示窗口还没结束，不能开奖。等倒计时归零后再点「触发开奖」。'],
+  [/commit still open/i, '提交窗口还没结束，不能揭示。'],
+  [/one order per address/i, '这个钱包已经提交过订单了（一个地址只能一单）。换个钱包，或直接去「揭示」。'],
+  [/not committed/i, '这个钱包还没提交过订单，无法揭示。请先在「提交中」阶段完成提交。'],
+  [/already revealed/i, '这个钱包已经揭示过了，不用重复操作。'],
+  [/bad secret/i, 'secret 不对——请确认用的是提交时保存的那个（页面会自动从本地恢复；换了浏览器或设备就找不回了）。'],
+  [/wrong price/i, '支付金额不对，应恰好等于单价。'],
+  [/no such drop/i, '这个 Drop ID 不存在。请从上方下拉列表选择。'],
+  [/not drawn yet/i, '还没开奖，暂时不能退款或查中签。'],
+  [/you won/i, '你已中签，货款归发行方，无需退款。'],
+  [/already refunded/i, '已经退过款了。'],
+  [/issuer only/i, '只有发行方可以提款。'],
+  [/insufficient/i, '钱包余额不足（记得留 gas）。'],
+  [/user rejected|denied/i, '你拒绝了签名，已取消。'],
+];
+function friendlyErr(e) {
+  const raw = (e && (e.shortMessage || e.message)) || String(e);
+  for (const [re, msg] of ERR_MAP) if (re.test(raw)) return msg;
+  return raw;
+}
+
+function stageOf(d, nowSec) {
+  if (d.drawn) return 'drawn';
+  if (nowSec < Number(d.commitDeadline)) return 'commit';
+  if (nowSec < Number(d.revealDeadline)) return 'reveal';
+  return 'waitdraw';
+}
+const STAGE_LABEL = { commit: '提交中', reveal: '揭示中', waitdraw: '等待开奖', drawn: '已开奖' };
+const fmtBJ = (ts) => new Date(Number(ts) * 1000).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', hour12: false });
+function fmtDur(s) { if (s <= 0) return '0 秒'; const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), sec = s % 60; return (h ? h + ' 小时 ' : '') + (m ? m + ' 分 ' : '') + sec + ' 秒'; }
+
 let provider, signer, account;
+let curDrop = null, curStage = null, lastNextId = null;
 
 // 未连接钱包时也能查询链上状态（只读）
 (async () => {
   try {
     provider = await pickRpc();
     log('只读节点已就绪，可直接点「刷新 Drop 状态」查看链上数据', 'ok');
+    await populatePicker(true);
+    await refreshAll(true);
   } catch (e) { log('只读节点连接失败：' + e.message, 'err'); }
 })();
-const contract = () => new ethers.Contract($('contractAddr').value.trim(), ABI, signer ?? provider);
+const contract = () => new ethers.Contract($('contractSel').value, ABI, signer ?? provider);
 const loadSaved = () => { try { return JSON.parse(localStorage.getItem('blitzfair_secrets') || '{}'); } catch { return {}; } };
 const saveSecret = (dropId, secret) => { const m = loadSaved(); m[dropId] = secret; localStorage.setItem('blitzfair_secrets', JSON.stringify(m)); };
+
+// 列出链上全部 Drop，默认选中最新一场未开奖的
+async function populatePicker(selectLatest) {
+  const c = contract();
+  const n = Number(await c.nextDropId());
+  const nowSec = Math.floor(Date.now() / 1000);
+  const opts = [];
+  let newestActive = null;
+  for (let i = n - 1; i >= 0; i--) {
+    try {
+      const d = await c.getDrop(i);
+      const st = stageOf(d, nowSec);
+      opts.push({ id: i, label: `#${i} ${d.name} · ${STAGE_LABEL[st]} · 已提交 ${d.committedCount} / 已揭示 ${d.revealedCount}`, stage: st });
+      if (st !== 'drawn' && newestActive === null) newestActive = i;
+    } catch (_) { /* 跳过读不到的 */ }
+  }
+  const sel = $('dropPicker');
+  const prev = $('dropId').value;
+  sel.innerHTML = opts.map(o => `<option value="${o.id}">${o.label}</option>`).join('');
+  let pick = selectLatest ? (newestActive ?? (n - 1)) : Number(prev);
+  if (!opts.some(o => o.id === pick)) pick = newestActive ?? (n - 1);
+  sel.value = String(pick);
+  $('dropId').value = String(pick);
+  lastNextId = n;
+  restoreSecret();
+}
+
+function gateButtons(stage) {
+  $('btnCommit').disabled = stage !== 'commit';
+  $('btnReveal').disabled = stage !== 'reveal';
+  $('btnDraw').disabled = stage !== 'waitdraw';
+  $('btnCheck').disabled = stage !== 'drawn';
+  $('btnRefund').disabled = stage !== 'drawn';
+  $('btnSweep').disabled = stage !== 'drawn';
+  $('commitHint').textContent =
+    stage === 'commit' ? '现在可以提交。' :
+    stage === 'drawn' ? '该 Drop 已开奖，提交已关闭。' :
+    '提交窗口未开放（当前阶段：' + STAGE_LABEL[stage] + '）。';
+  $('revealHint').textContent =
+    stage === 'reveal' ? '现在可以揭示。' :
+    stage === 'drawn' ? '该 Drop 已开奖，揭示已关闭。' :
+    '揭示窗口未开放（当前阶段：' + STAGE_LABEL[stage] + '）。';
+  $('drawHint').textContent =
+    stage === 'waitdraw' ? '现在可以开奖——演示时建议现场点这一按钮。' :
+    stage === 'drawn' ? '已开奖。未中签者可一键退款，中签者货款归发行方（sweep 提款）。' :
+    '开奖要等揭示窗口结束（当前阶段：' + STAGE_LABEL[stage] + '）。';
+}
+
+async function updateWalletBadges() {
+  const pill = $('walletPill');
+  if (!account || !curDrop) { pill.style.display = 'none'; return; }
+  try {
+    const id = $('dropId').value || 0;
+    const c = contract();
+    const [committed, revealed, refunded, won] = await Promise.all([
+      c.hasCommitted(id, account), c.hasRevealed(id, account), c.hasRefunded(id, account), c.isWinner(id, account)
+    ]);
+    const parts = [committed ? '已提交 ✓' : '未提交'];
+    if (committed) parts.push(revealed ? '已揭示 ✓' : '未揭示');
+    if (won) parts.push('🎉 已中签');
+    if (refunded) parts.push('已退款');
+    pill.textContent = '我的状态：' + parts.join(' · ');
+    pill.style.display = 'inline-block';
+  } catch (_) { /* 忽略 */ }
+}
+
+async function refreshAll(quiet) {
+  try {
+    const c = contract();
+    const n = Number(await c.nextDropId());
+    if (n !== lastNextId) { await populatePicker(true); if (!quiet) log('检测到新 Drop，已自动切换到最新一场', 'ok'); }
+    const id = $('dropId').value || 0;
+    const d = await c.getDrop(id);
+    curDrop = d;
+    const nowSec = Math.floor(Date.now() / 1000);
+    curStage = stageOf(d, nowSec);
+    $('stName').textContent = d.name; $('stQuota').textContent = d.quota.toString();
+    $('stPrice').textContent = ethers.formatEther(d.price); $('stCommitted').textContent = `${d.committedCount} / ${d.revealedCount}`;
+    $('stStage').textContent = STAGE_LABEL[curStage]; $('stWinners').textContent = d.winners.toString();
+    $('stRevealed').textContent = `${d.revealedCount} / ${d.committedCount}`;
+    $('stWinners2').textContent = d.winners.toString();
+    $('stPending').textContent = (d.committedCount - d.winners).toString();
+    $('stProceeds').textContent = ethers.formatEther(d.proceeds);
+    $('deadlines').innerHTML =
+      `提交截止：${fmtBJ(d.commitDeadline)}（北京时间）<br/>揭示截止：${fmtBJ(d.revealDeadline)}（北京时间）<br/><span id="countdown"></span>`;
+    const banner = $('stageBanner');
+    banner.className = 'banner ' + curStage;
+    banner.innerHTML =
+      curStage === 'commit' ? `<b>🟢 提交窗口开放中</b> —— 现在提交订单哈希，顺序不影响结果。` :
+      curStage === 'reveal' ? `<b>🟡 揭示窗口开放中</b> —— 用提交时的 secret 揭示，揭示后才进入候选池。` :
+      curStage === 'waitdraw' ? `<b>🔵 揭示已结束，等待开奖</b> —— 任何人点「触发开奖」即可（演示时建议现场点）。` :
+      `<b>✅ 已开奖</b> —— 中签名单已上链。未中签者可一键退款。`;
+    gateButtons(curStage);
+    await updateWalletBadges();
+    if (!quiet) log(`已刷新：Drop #${id}「${d.name}」· ${STAGE_LABEL[curStage]}`, 'ok');
+  } catch (e) { if (!quiet) log('刷新失败：' + friendlyErr(e), 'err'); }
+}
+
+// 倒计时（每秒）
+setInterval(() => {
+  const el = $('countdown');
+  if (!el || !curDrop) return;
+  const nowSec = Math.floor(Date.now() / 1000);
+  if (curStage === 'commit') el.textContent = '⏳ 距提交截止 ' + fmtDur(Number(curDrop.commitDeadline) - nowSec);
+  else if (curStage === 'reveal') el.textContent = '⏳ 距揭示截止 ' + fmtDur(Number(curDrop.revealDeadline) - nowSec);
+  else if (curStage === 'waitdraw') el.textContent = '⏳ 揭示已结束，现在可以开奖';
+  else el.textContent = '⏳ 已开奖';
+}, 1000);
+// 自动刷新（每 15 秒，静默）
+setInterval(() => { if ($('autoRefresh').checked) refreshAll(true); }, 15000);
 
 $('btnConnect').onclick = async () => {
   if (!window.ethereum) return log('未检测到钱包（装个 MetaMask？）', 'err');
@@ -193,7 +388,7 @@ $('btnConnect').onclick = async () => {
   setStep(2); log('钱包已连接：' + account, 'ok'); restoreSecret();
   const net = await provider.getNetwork();
   if (Number(net.chainId) !== 10143) log('⚠️ 当前钱包不在 Monad 测试网（10143），点右上角「切换到 Monad 测试网」', 'err');
-
+  await refreshAll(true);
 };
 $('btnSwitch').onclick = async () => {
   if (!window.ethereum) return;
@@ -208,7 +403,11 @@ $('btnGenSecret').onclick = async () => {
   $('secret').value = s; saveSecret($('dropId').value || '0', s); updateCommitment(); log('已生成 secret 并保存到本地（退款/揭示的凭证）', 'ok');
 };
 $('secret').addEventListener('input', updateCommitment);
+$('dropPicker').addEventListener('change', () => { $('dropId').value = $('dropPicker').value; restoreSecret(); updateCommitment(); refreshAll(); });
 $('dropId').addEventListener('input', () => { updateCommitment(); restoreSecret(); });
+$('dropId').addEventListener('change', () => refreshAll());
+$('btnReloadList').onclick = async () => { try { await populatePicker(false); log('Drop 列表已刷新', 'ok'); } catch (e) { log('刷新列表失败：' + friendlyErr(e), 'err'); } };
+$('btnRefresh').onclick = () => refreshAll();
 async function updateCommitment() {
   const v = $('secret').value.trim(); const out = $('commitment');
   if (!/^0x[0-9a-fA-F]{64}$/.test(v)) { out.value = ''; return; }
@@ -218,50 +417,73 @@ function restoreSecret() { const m = loadSaved(); const s = m[$('dropId').value 
 
 $('btnCommit').onclick = async () => {
   try {
-    const d = await contract().getDrop($('dropId').value || 0);
+    if (!signer) return log('请先连接钱包', 'err');
+    const id = $('dropId').value || 0;
+    const d = await contract().getDrop(id);
+    const cm = $('commitment').value.trim();
+    if (!/^0x[0-9a-fA-F]{64}$/.test(cm)) return log('commitment 还没算出来——先生成 secret 并连接钱包', 'err');
+    try { await contract().commit.staticCall(id, cm, { value: d.price }); }
+    catch (e) { return log('预检未通过（未发送交易）：' + friendlyErr(e), 'err'); }
     log(`提交中… 单价 ${ethers.formatEther(d.price)} MON`);
-    const tx = await contract().commit($('dropId').value || 0, $('commitment').value, { value: d.price });
-    await tx.wait(); setStep(3); log('✅ 提交上链！tx: ' + tx.hash, 'ok');
-  } catch (e) { log('❌ 提交失败：' + (e.shortMessage || e.message || e), 'err'); }
+    const tx = await contract().commit(id, cm, { value: d.price });
+    await tx.wait(); setStep(3); log('✅ 提交上链！tx: ' + tx.hash, 'ok'); refreshAll(true);
+  } catch (e) { log('❌ 提交失败：' + friendlyErr(e), 'err'); }
 };
 $('btnReveal').onclick = async () => {
   try {
+    if (!signer) return log('请先连接钱包', 'err');
     const v = $('secret').value.trim(); if (!/^0x[0-9a-fA-F]{64}$/.test(v)) return log('secret 格式不对（应为 0x + 64 hex）', 'err');
-    const tx = await contract().reveal($('dropId').value || 0, v); await tx.wait(); setStep(4);
-    log('✅ 揭示上链！你已进入候选池，tx: ' + tx.hash, 'ok');
-  } catch (e) { log('❌ 揭示失败：' + (e.shortMessage || e.message || e), 'err'); }
+    const id = $('dropId').value || 0;
+    try { await contract().reveal.staticCall(id, v); }
+    catch (e) { return log('预检未通过（未发送交易）：' + friendlyErr(e), 'err'); }
+    const tx = await contract().reveal(id, v); await tx.wait(); setStep(4);
+    log('✅ 揭示上链！你已进入候选池，tx: ' + tx.hash, 'ok'); refreshAll(true);
+  } catch (e) { log('❌ 揭示失败：' + friendlyErr(e), 'err'); }
 };
 $('btnDraw').onclick = async () => {
-  try { const tx = await contract().draw($('dropId').value || 0); await tx.wait(); log('🎲 开奖完成！tx: ' + tx.hash, 'ok'); }
-  catch (e) { log('❌ 开奖失败（可能 reveal 窗口还没到）：' + (e.shortMessage || e.message || e), 'err'); }
+  try {
+    if (!signer) return log('请先连接钱包（开奖需要发一笔交易）', 'err');
+    const id = $('dropId').value || 0;
+    try { await contract().draw.staticCall(id); }
+    catch (e) { return log('预检未通过（未发送交易）：' + friendlyErr(e), 'err'); }
+    const tx = await contract().draw(id); await tx.wait();
+    log('🎲 开奖完成！tx: ' + tx.hash, 'ok'); refreshAll(true);
+  } catch (e) { log('❌ 开奖失败：' + friendlyErr(e), 'err'); }
 };
 $('btnCheck').onclick = async () => {
   try {
+    if (!account) return log('请先连接钱包', 'err');
     const won = await contract().isWinner($('dropId').value || 0, account);
     log(won ? '🎉 你中签了，货款已锁定给发行方' : '未中签——点「一键退款」，金额原路退回', won ? 'ok' : 'err');
-  } catch (e) { log('查询失败：' + (e.shortMessage || e.message || e), 'err'); }
+  } catch (e) { log('查询失败：' + friendlyErr(e), 'err'); }
 };
 $('btnRefund').onclick = async () => {
-  try { const tx = await contract().claimRefund($('dropId').value || 0); await tx.wait(); log('✅ 已退款到你的钱包，tx: ' + tx.hash, 'ok'); }
-  catch (e) { log('❌ 退款失败（若中签则无需退款）：' + (e.shortMessage || e.message || e), 'err'); }
-};
-$('btnRefresh').onclick = async () => {
   try {
-    const d = await contract().getDrop($('dropId').value || 0);
-    const now = BigInt(Math.floor(Date.now() / 1000));
-    const stage = d.drawn ? '已开奖' : now < d.commitDeadline ? '提交中' : now < d.revealDeadline ? '揭示中' : '等待开奖';
-    $('stName').textContent = d.name; $('stQuota').textContent = d.quota.toString();
-    $('stPrice').textContent = ethers.formatEther(d.price); $('stCommitted').textContent = `${d.committedCount} / ${d.revealedCount}`;
-    $('stStage').textContent = stage; $('stWinners').textContent = d.winners.toString();
-    $('stRevealed').textContent = `${d.revealedCount} / ${d.committedCount}`;
-    $('stWinners2').textContent = d.winners.toString();
-    $('stPending').textContent = (d.committedCount - d.winners).toString();
-    $('stProceeds').textContent = ethers.formatEther(d.proceeds);
-    log(`已刷新：${d.name} · ${stage}`, 'ok');
-  } catch (e) { log('刷新失败：' + (e.shortMessage || e.message || e), 'err'); }
+    if (!signer) return log('请先连接钱包', 'err');
+    const tx = await contract().claimRefund($('dropId').value || 0); await tx.wait();
+    log('✅ 已退款到你的钱包，tx: ' + tx.hash, 'ok'); refreshAll(true);
+  } catch (e) { log('❌ 退款失败：' + friendlyErr(e), 'err'); }
 };
-$('btnSweep').onclick = async () => { try { const tx = await contract().sweep($('dropId').value || 0); await tx.wait(); log('💰 发行方提款完成，tx: ' + tx.hash, 'ok'); } catch (e) { log('提款失败（非发行方或尚未开奖）：' + (e.shortMessage || e.message || e), 'err'); } };
-$('btnCopyAddr').onclick = async () => { const v = $('contractAddr').value.trim(); try { await navigator.clipboard.writeText(v); log('已复制合约地址', 'ok'); } catch { log(v, 'ok'); } };
+$('btnPreset').onclick = () => { $('cdCommit').value = 120; $('cdReveal').value = 120; $('cdQuota').value = 10; $('cdPrice').value = '0.01'; log('已填入演示预设：提交 120 秒 + 揭示 120 秒'); };
+$('btnCreate').onclick = async () => {
+  try {
+    if (!signer) return log('请先连接钱包（创建发售需要钱包）', 'err');
+    const name = $('cdName').value.trim() || '现场快闪发售';
+    const quota = $('cdQuota').value || '10';
+    const price = ethers.parseEther($('cdPrice').value || '0.01');
+    const cs = Number($('cdCommit').value || 120);
+    const rs = Number($('cdReveal').value || 120);
+    log(`创建发售中…「${name}」名额 ${quota} · 单价 ${$('cdPrice').value} MON · 提交 ${cs}s + 揭示 ${rs}s`);
+    const tx = await contract().createDrop(name, quota, price, cs, rs);
+    await tx.wait();
+    const newId = Number(await contract().nextDropId()) - 1;
+    log(`✅ 新发售已创建：Drop #${newId}「${name}」，已自动切换——把 Drop ID 告诉观众`, 'ok');
+    lastNextId = null; await populatePicker(true); await refreshAll(true);
+  } catch (e) { log('❌ 创建失败：' + friendlyErr(e), 'err'); }
+};
+$('btnSweep').onclick = async () => { try { if (!signer) return log('请先连接钱包', 'err'); const tx = await contract().sweep($('dropId').value || 0); await tx.wait(); log('💰 发行方提款完成，tx: ' + tx.hash, 'ok'); refreshAll(true); } catch (e) { log('提款失败：' + friendlyErr(e), 'err'); } };
+$('btnCopyAddr').onclick = async () => { const v = $('contractSel').value; try { await navigator.clipboard.writeText(v); log('已复制合约地址', 'ok'); } catch { log(v, 'ok'); } };
+$('contractSel').addEventListener('change', async () => { lastNextId = null; log('已切换合约：' + $('contractSel').value, 'ok'); await populatePicker(true); await refreshAll(true); });
 $('btnCopyDrop').onclick = async () => { const v = $('dropId').value || '0'; try { await navigator.clipboard.writeText(v); log('已复制 Drop ID', 'ok'); } catch { log(v, 'ok'); } };
 setStep(1);
 </script>
